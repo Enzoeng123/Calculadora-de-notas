@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Média Semestral</title>
+    <!-- Carrega o Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Define a fonte Inter como padrão */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Estilo para os inputs number não mostrarem as setas */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md">
+        
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">
+            Calculadora de Média Semestral
+        </h1>
+
+        <form id="mediaForm" class="space-y-4">
+            <!-- Campo AV1 -->
+            <div>
+                <label for="av1" class="block text-sm font-medium text-gray-700 mb-1">
+                    Nota AV1 (Peso 25%)
+                </label>
+                <input type="text" id="av1" inputmode="decimal"
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="Ex: 10">
+            </div>
+
+            <!-- Campo AV2 -->
+            <div>
+                <label for="av2" class="block text-sm font-medium text-gray-700 mb-1">
+                    Nota AV2 (Peso 25%)
+                </label>
+                <input type="text" id="av2" inputmode="decimal"
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="Ex: 10">
+            </div>
+
+            <!-- Campo AV3 (ordem trocada) -->
+            <div>
+                <label for="av3" class="block text-sm font-medium text-gray-700 mb-1">
+                    Nota AV3 (Peso 30%)
+                </label>
+                <input type="text" id="av3" inputmode="decimal"
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="Deixe vazio para calcular">
+            </div>
+            
+            <!-- Campo EDAG (ordem trocada) -->
+            <div>
+                <label for="edag" class="block text-sm font-medium text-gray-700 mb-1">
+                    Nota EDAG (Peso 20%)
+                </label>
+                <input type="text" id="edag" inputmode="decimal"
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="Ex: 10">
+            </div>
+
+            <!-- Botões -->
+            <div class="flex space-x-4 pt-4">
+                <button type="button" id="calcButton" 
+                        class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors duration-300">
+                    Calcular
+                </button>
+                <button type="button" id="clearButton" 
+                        class="w-full bg-gray-400 text-white py-3 px-6 rounded-lg font-medium hover:bg-gray-500 transition-colors duration-300">
+                    Limpar
+                </button>
+            </div>
+        </form>
+
+        <!-- Área de Resultado -->
+        <div id="resultado" class="mt-6 text-center text-lg font-semibold">
+            <!-- Os resultados aparecerão aqui -->
+        </div>
+
+    </div>
+
+    <script>
+        // Adiciona os event listeners aos botões
+        document.getElementById('calcButton').addEventListener('click', calcularMedia);
+        document.getElementById('clearButton').addEventListener('click', limparCampos);
+
+        // --- NOVO: Adiciona listeners de input para validação ---
+        const inputs = ['av1', 'av2', 'av3', 'edag'];
+        inputs.forEach(id => {
+            document.getElementById(id).addEventListener('input', handleInputValidation);
+        });
+
+        /**
+         * NOVO: Valida o input em tempo real.
+         * Permite apenas números, 1 separador (ponto ou vírgula) e 1 casa decimal.
+         * Limita o valor máximo a 10.
+         */
+        function handleInputValidation(e) {
+            let value = e.target.value;
+            
+            // 1. Limpa: permite só digitos, vírgula e ponto
+            value = value.replace(/[^0-9,.]/g, '');
+            
+            // 2. Unifica para ponto
+            value = value.replace(',', '.');
+            
+            // 3. Garante apenas um ponto
+            const firstDot = value.indexOf('.');
+            if (firstDot !== -1) {
+                value = value.substring(0, firstDot + 1) + value.substring(firstDot + 1).replace(/\./g, '');
+            }
+            
+            // 4. Garante apenas uma casa decimal
+            let parts = value.split('.');
+            if (parts[1] && parts[1].length > 1) {
+                value = parts[0] + '.' + parts[1].substring(0, 1);
+            }
+            
+            // 5. Valida o range 0-10
+            let num = parseFloat(value);
+            
+            if (value === '10.') {
+                // Permite digitar '10.'
+            } else if (value.startsWith('10.') && value.length > 3) {
+                value = '10.0'; // ex: 10.1 -> 10.0
+            } else if (num > 10) {
+                value = '10'; // ex: 11 -> 10
+            } else if (value.startsWith('0') && value.length > 1 && value[1] !== '.') {
+                // ex: 07 -> 7 (remove zero à esquerda de inteiros)
+                value = num.toString();
+            }
+
+            e.target.value = value;
+        }
+
+        // Define os pesos
+        const pesoAV1 = 25;
+        const pesoAV2 = 25;
+        const pesoAV3 = 30;
+        const pesoEDAG = 20;
+        const mediaParaPassar = 7;
+        const totalPesos = 100;
+
+        /**
+         * ATUALIZADO: Processa o valor do input.
+         * Substitui vírgula por ponto e valida o número.
+         */
+        function getNota(id) {
+            const value = document.getElementById(id).value;
+            // Retorna null se vazio ou se for apenas um ponto
+            if (value === '' || value === '.') {
+                return null;
+            }
+            
+            // Substitui vírgula por ponto
+            const processedValue = value.replace(',', '.');
+            let num = parseFloat(processedValue);
+            
+            // Valida se é um número válido no range
+            if (isNaN(num) || num < 0 || num > 10) {
+                return NaN; // Retorna NaN se for inválido
+            }
+            
+            return num;
+        }
+
+        function calcularMedia() {
+            const resultadoEl = document.getElementById('resultado');
+            
+            // Limpa o resultado anterior e as cores
+            resultadoEl.textContent = '';
+            resultadoEl.classList.remove('text-green-600', 'text-red-600', 'text-blue-600', 'text-yellow-600');
+
+            // Pega as notas dos inputs
+            const av1 = getNota('av1');
+            const av2 = getNota('av2');
+            const av3 = getNota('av3');
+            const edag = getNota('edag');
+
+            // --- NOVO: Checa por notas inválidas (NaN) ---
+            if ( (av1 !== null && isNaN(av1)) || 
+                 (av2 !== null && isNaN(av2)) || 
+                 (av3 !== null && isNaN(av3)) || 
+                 (edag !== null && isNaN(edag)) ) 
+            {
+                resultadoEl.textContent = 'Uma ou mais notas são inválidas. Use números de 0 a 10 (ex: 7.2 ou 7,2).';
+                resultadoEl.classList.add('text-red-600');
+                return;
+            }
+
+            // --- Cenário 1: Calcular a média final (AV3 foi preenchida) ---
+            if (av3 !== null) {
+                // Verifica se todas as notas foram preenchidas
+                if (av1 === null || av2 === null || edag === null) {
+                    resultadoEl.textContent = 'Por favor, preencha todas as notas para calcular a média final.';
+                    resultadoEl.classList.add('text-red-600');
+                    return;
+                }
+
+                // Calcula a soma ponderada
+                const somaPonderada = (av1 * pesoAV1) + (av2 * pesoAV2) + (av3 * pesoAV3) + (edag * pesoEDAG);
+                // Calcula a média final
+                const mediaFinal = somaPonderada / totalPesos;
+
+                // Exibe o resultado
+                if (mediaFinal >= mediaParaPassar) {
+                    status = 'Parabéns, você está Aprovado!';
+                    resultadoEl.classList.add('text-green-600');
+                    resultadoEl.innerHTML = `Sua média final (AG) é: <strong class="text-2xl block mt-1">${mediaFinal.toFixed(2)}</strong> <span class="block mt-1">${status}</span>`;
+                } else {
+                    // --- CÁLCULO DA FINAL ---
+                    // Calcula a nota necessária na Avaliação Final (AF)
+                    // Fórmula: Pontuação necessária = (50 - 6 * AG) / 4
+                    const notaFinal = (50 - 6 * mediaFinal) / 4;
+
+                    resultadoEl.classList.add('text-blue-600'); // Cor azul como na imagem
+                    
+                    // Mostra o card de resultado da Final
+                    resultadoEl.innerHTML = `
+                        <div class="text-left p-4 border border-blue-200 rounded-lg bg-blue-50/50">
+                            <div class="flex items-center space-x-3 sm:space-x-4">
+                                <div class="flex-shrink-0">
+                                    <div class="border-4 border-blue-500 rounded-lg w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+                                        <!-- Garante que a nota não seja negativa -->
+                                        <strong class="text-3xl sm:text-4xl font-bold">${Math.max(0, notaFinal).toFixed(1)}</strong>
+                                    </div>
+                                </div>
+                                <div class="text-left">
+                                    <h3 class="font-bold text-lg sm:text-xl text-gray-800">Pontuação para Aprovação</h3>
+                                    <p class="text-gray-700 text-sm sm:text-base">Este é o quanto você precisa na Final</p>
+                                </div>
+                            </div>
+                            <div class="mt-4 text-xs sm:text-sm text-gray-600 space-y-2">
+                                <p>Sua média (AG) foi <strong class="text-gray-800">${mediaFinal.toFixed(2)}</strong>, que é menor que ${mediaParaPassar.toFixed(1)}.</p>
+                                <p class="hidden sm:block">O estudante que não obtiver aproveitamento global (AG) igual ou superior a 7,0 poderá fazer Avaliação Final (AF).</p>
+                                <div class="mt-2 p-3 bg-gray-100 rounded-md text-center">
+                                    <span class="font-mono font-bold text-gray-800 text-xs sm:text-sm">Pontuação necessária = (50 - 6 x AG) / 4</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            
+            // --- Cenário 2: Calcular nota necessária na AV3 (AV3 está vazia) ---
+            } else {
+                // Verifica se as outras notas foram preenchidas
+                if (av1 === null || av2 === null || edag === null) {
+                    resultadoEl.textContent = 'Preencha AV1, AV2 e EDAG para calcular a nota necessária na AV3.';
+                    resultadoEl.classList.add('text-red-600');
+                    return;
+                }
+
+                // Calcula a soma ponderada necessária para passar (Média * 100)
+                const somaNecessaria = mediaParaPassar * totalPesos; // 7 * 100 = 700
+
+                // Calcula a soma ponderada atual (sem a AV3)
+                const somaAtual = (av1 * pesoAV1) + (av2 * pesoAV2) + (edag * pesoEDAG);
+
+                // Calcula a pontuação ponderada que falta obter na AV3
+                const somaNecessariaAV3 = somaNecessaria - somaAtual;
+
+                // Calcula a nota real necessária na AV3 (Pontos_Faltando / Peso_AV3)
+                const notaNecessariaAV3 = somaNecessariaAV3 / pesoAV3;
+
+                // Exibe o resultado com base na nota necessária
+                if (notaNecessariaAV3 > 10) {
+                    // Calcula a média máxima possível (assumindo 10 na AV3)
+                    const somaPonderadaMaxima = (av1 * pesoAV1) + (av2 * pesoAV2) + (10 * pesoAV3) + (edag * pesoEDAG);
+                    const mediaFinalMaxima = somaPonderadaMaxima / totalPesos;
+                    
+                    // Calcula a nota da final com base na média máxima
+                    const notaFinalEstimada = (50 - 6 * mediaFinalMaxima) / 4;
+
+                    resultadoEl.classList.add('text-red-600');
+                    resultadoEl.innerHTML = `
+                        <div class="text-left p-4 border border-red-200 rounded-lg bg-red-50/50">
+                            <p class="font-bold text-lg mb-2">Não é mais possível passar por média.</p>
+                            <p class="text-sm mb-3">Você precisaria de <strong class="text-xl">${notaNecessariaAV3.toFixed(2)}</strong> na AV3 para atingir a média 7.0.</p>
+                            <p class="text-sm mb-3">Se você tirar 10 na AV3, sua média (AG) máxima será <strong class="text-gray-800">${mediaFinalMaxima.toFixed(2)}</strong>.</p>
+                            
+                            <!-- Mensagem da Final (Estimada) -->
+                            <div class="mt-4 pt-4 border-t border-red-200">
+                                <h3 class="font-bold text-lg text-gray-800">Cálculo para a Final (Estimado)</h3>
+                                <p class="text-gray-700 text-sm mb-2">Com base nessa média máxima, você precisaria de aproximadamente:</p>
+                                <div class="flex items-center justify-center space-x-4 p-3 bg-gray-100 rounded-md">
+                                    <div class="border-4 border-blue-500 rounded-lg w-16 h-16 flex items-center justify-center">
+                                        <strong class="text-3xl font-bold text-blue-600">${Math.max(0, notaFinalEstimada).toFixed(1)}</strong>
+                                    </div>
+                                    <span class="font-bold text-gray-800 text-sm">Na Avaliação Final</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                } else if (notaNecessariaAV3 <= 0) {
+                    resultadoEl.innerHTML = `Você precisa de: <strong class="text-2xl block mt-1">0.00 na AV3</strong> <span class="block mt-1">Parabéns, você já está aprovado!</span>`;
+                    resultadoEl.classList.add('text-green-600');
+                } else {
+                    resultadoEl.innerHTML = `Você precisa tirar pelo menos: <strong class="text-2xl block mt-1">${notaNecessariaAV3.toFixed(2)} na AV3</strong> <span class="block mt-1">para ser aprovado.</span>`;
+                    resultadoEl.classList.add('text-blue-600');
+                }
+            }
+        }
+
+        function limparCampos() {
+            // Limpa todos os inputs
+            document.getElementById('av1').value = '';
+            document.getElementById('av2').value = '';
+            document.getElementById('av3').value = '';
+            document.getElementById('edag').value = '';
+            
+            // Limpa o resultado
+            const resultadoEl = document.getElementById('resultado');
+            resultadoEl.textContent = '';
+            resultadoEl.classList.remove('text-green-600', 'text-red-600', 'text-blue-600', 'text-yellow-600');
+        }
+    </script>
+
+</body>
+</html>
